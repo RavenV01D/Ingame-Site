@@ -1,81 +1,47 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
+
 <head>
+
 <meta charset="UTF-8">
-<title>Island Relay Chat</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 
 body{
 background:black;
-color:#d0d0d0;
+color:white;
 font-family:monospace;
-margin:0;
-}
-
-.container{
-max-width:900px;
-margin:auto;
 padding:20px;
 }
 
-h1{
-text-align:center;
-color:white;
-text-shadow: 2px 2px red, -2px -2px blue;
-}
-
-#loginBox{
-text-align:center;
-margin-top:120px;
+#messages{
+height:400px;
+overflow:auto;
+border:1px solid #333;
+padding:10px;
+margin-bottom:10px;
 }
 
 input{
 background:#111;
 border:1px solid #333;
 color:white;
-padding:10px;
-font-family:monospace;
+padding:8px;
 }
 
 button{
 background:#111;
 border:1px solid #333;
 color:white;
-padding:10px 20px;
-margin-top:10px;
+padding:8px;
 cursor:pointer;
-}
-
-button:hover{
-border-color:white;
-}
-
-#chatBox{
-display:none;
-}
-
-#messages{
-height:400px;
-overflow-y:auto;
-border:1px solid #222;
-padding:10px;
-background:#050505;
-margin-bottom:10px;
-}
-
-.msg{
-margin-bottom:8px;
 }
 
 .system{
 color:#888;
 font-style:italic;
-}
-
-.warning{
-color:#ff5555;
-margin-bottom:10px;
 }
 
 </style>
@@ -84,81 +50,70 @@ margin-bottom:10px;
 
 <body>
 
-<div class="container">
+<h2>ISLAND RELAY</h2>
 
-<h1>ISLAND NETWORK</h1>
+<div id="login">
 
-<div id="loginBox">
-<p>Enter username to connect</p>
-<input id="username" placeholder="username">
+username:
+<input id="username">
+
+<button onclick="connect()">
+connect
+</button>
+
+</div>
+
+<div id="chat" style="display:none">
+
+<div class="system">
+limited bandwidth • packet loss detected
+messages may corrupt • delay 5–10 seconds
+</div>
+
 <br>
-<button onclick="login()">connect</button>
-</div>
-
-<div id="chatBox">
-
-<div class="warning">
-Due to limited bandwidth on the island, messages may be delayed or corrupted.
-</div>
 
 <div id="messages"></div>
 
-<input id="msgInput" placeholder="type message..." style="width:80%;">
-<button onclick="sendMessage()">send</button>
+<input id="msg" placeholder="message">
 
-</div>
+<button onclick="sendMsg()">
+send
+</button>
 
 </div>
 
 <script>
 
-const API = "https://api.jsonbin.io/v3/b/66100ab1acd3cb34a8369f2d";
+const supabase = window.supabase.createClient(
+
+"https://jxeznfxcltjopmskpnqz.supabase.co",
+
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4ZXpuZnhjbHRqb3Btc2twbnF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNzAyNDksImV4cCI6MjA5MDk0NjI0OX0.RdBfTCcJnK2xP3WVc99QXnLHfhyuNlG2rsTPWsBp5F4"
+
+);
 
 let username="";
-let lastSeen=0;
+let lastMessageId=0;
 
-function login(){
+function connect(){
 
-username=document.getElementById("username").value.trim();
+username=document.getElementById("username").value;
 
 if(username.length<2){
-alert("invalid username");
+
+alert("enter username");
+
 return;
+
 }
 
-document.getElementById("loginBox").style.display="none";
-document.getElementById("chatBox").style.display="block";
+document.getElementById("login").style.display="none";
 
-systemMsg("connected to island relay");
+document.getElementById("chat").style.display="block";
 
 loadMessages();
-setInterval(loadMessages,2000);
 
-}
-
-function systemMsg(text){
-
-addMsg("SYSTEM",text,true);
-
-}
-
-function addMsg(user,text,isSystem=false){
-
-let box=document.getElementById("messages");
-
-let div=document.createElement("div");
-
-div.className="msg";
-
-if(isSystem){
-div.className+=" system";
-}
-
-div.innerHTML="<b>"+user+":</b> "+text;
-
-box.appendChild(div);
-
-box.scrollTop=box.scrollHeight;
+setInterval(loadMessages,3000);
 
 }
 
@@ -170,7 +125,11 @@ for(let i=0;i<chars.length;i++){
 
 if(Math.random()<0.1){
 
-chars[i]=randomChar();
+chars[i]="#@$%&█".charAt(
+
+Math.floor(Math.random()*6)
+
+);
 
 }
 
@@ -180,47 +139,45 @@ return chars.join("");
 
 }
 
-function randomChar(){
+function display(msg){
 
-const set="#$%&@?█▒░ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+let div=document.createElement("div");
 
-return set[Math.floor(Math.random()*set.length)];
+div.innerHTML="<b>"+msg.username+"</b>: "+msg.message;
+
+document.getElementById("messages").appendChild(div);
 
 }
 
-async function sendMessage(){
+async function sendMsg(){
 
-let input=document.getElementById("msgInput");
+let text=document.getElementById("msg").value;
 
-let text=input.value.trim();
-
-if(text=="") return;
-
-input.value="";
-
-systemMsg("transmitting... signal unstable");
+document.getElementById("msg").value="";
 
 let delay=5000+Math.random()*5000;
 
-setTimeout(async ()=>{
+let div=document.createElement("div");
 
-let corrupted=corrupt(text);
+div.innerHTML="<i>sending...</i>";
 
-await fetch(API,{
-method:"PUT",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-messages:[
-{
-user:username,
-text:corrupted,
-time:Date.now()
-}
-]
-})
+document.getElementById("messages").appendChild(div);
+
+setTimeout(async()=>{
+
+await supabase
+
+.from("messages")
+
+.insert({
+
+username:username,
+
+message:corrupt(text)
+
 });
+
+div.remove();
 
 },delay);
 
@@ -228,37 +185,28 @@ time:Date.now()
 
 async function loadMessages(){
 
-try{
+let {data}=await supabase
 
-let res=await fetch(API);
+.from("messages")
 
-let data=await res.json();
+.select("*")
 
-if(!data.record) return;
+.gt("id",lastMessageId)
 
-let msgs=data.record.messages||[];
+.order("id");
 
-msgs.forEach(m=>{
+data.forEach(m=>{
 
-if(m.time>lastSeen){
+display(m);
 
-addMsg(m.user,m.text);
-
-lastSeen=m.time;
-
-}
+lastMessageId=m.id;
 
 });
-
-}catch(e){
-
-systemMsg("connection unstable");
-
-}
 
 }
 
 </script>
 
 </body>
+
 </html>
