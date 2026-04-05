@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Island Network Chat</title>
+<title>Island Relay Chat</title>
 
 <style>
 
@@ -110,28 +110,18 @@ Due to limited bandwidth on the island, messages may be delayed or corrupted.
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script>
 
-// free realtime backend
-const supabase = window.supabase.createClient(
-"https://demo.supabase.co",
-"public-anon-key"
-);
+const API = "https://api.jsonbin.io/v3/b/66100ab1acd3cb34a8369f2d";
 
-// NOTE:
-// replace above with your own supabase later if needed
-// for testing we simulate local chat
-
-let username = "";
-let messages = [];
+let username="";
+let lastSeen=0;
 
 function login(){
 
-username = document.getElementById("username").value.trim();
+username=document.getElementById("username").value.trim();
 
-if(username.length < 2){
+if(username.length<2){
 alert("invalid username");
 return;
 }
@@ -139,22 +129,36 @@ return;
 document.getElementById("loginBox").style.display="none";
 document.getElementById("chatBox").style.display="block";
 
-addSystem("connected to island relay");
-simulateOthers();
+systemMsg("connected to island relay");
+
+loadMessages();
+setInterval(loadMessages,2000);
 
 }
 
-function addSystem(text){
+function systemMsg(text){
 
-let msgBox=document.getElementById("messages");
+addMsg("SYSTEM",text,true);
 
-msgBox.innerHTML+=`
-<div class="msg system">
-${text}
-</div>
-`;
+}
 
-msgBox.scrollTop=msgBox.scrollHeight;
+function addMsg(user,text,isSystem=false){
+
+let box=document.getElementById("messages");
+
+let div=document.createElement("div");
+
+div.className="msg";
+
+if(isSystem){
+div.className+=" system";
+}
+
+div.innerHTML="<b>"+user+":</b> "+text;
+
+box.appendChild(div);
+
+box.scrollTop=box.scrollHeight;
 
 }
 
@@ -184,67 +188,73 @@ return set[Math.floor(Math.random()*set.length)];
 
 }
 
-function sendMessage(){
+async function sendMessage(){
 
 let input=document.getElementById("msgInput");
+
 let text=input.value.trim();
 
 if(text=="") return;
 
 input.value="";
 
-addSystem("transmitting... signal unstable");
+systemMsg("transmitting... signal unstable");
 
 let delay=5000+Math.random()*5000;
 
-setTimeout(()=>{
+setTimeout(async ()=>{
 
 let corrupted=corrupt(text);
 
-displayMessage(username, corrupted);
+await fetch(API,{
+method:"PUT",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+messages:[
+{
+user:username,
+text:corrupted,
+time:Date.now()
+}
+]
+})
+});
 
-}, delay);
+},delay);
 
 }
 
-function displayMessage(user,text){
+async function loadMessages(){
 
-let msgBox=document.getElementById("messages");
+try{
 
-msgBox.innerHTML+=`
-<div class="msg">
-<b>${user}:</b> ${text}
-</div>
-`;
+let res=await fetch(API);
 
-msgBox.scrollTop=msgBox.scrollHeight;
+let data=await res.json();
+
+if(!data.record) return;
+
+let msgs=data.record.messages||[];
+
+msgs.forEach(m=>{
+
+if(m.time>lastSeen){
+
+addMsg(m.user,m.text);
+
+lastSeen=m.time;
 
 }
 
-// fake other players for immersion
+});
 
-function simulateOthers(){
+}catch(e){
 
-let names=["unit-03","relay-tech","unknown","survivor"];
+systemMsg("connection unstable");
 
-setInterval(()=>{
-
-let randomMsg=[
-"signal weak near forest",
-"anyone alive?",
-"something moved outside",
-"stay inside at night",
-"radio interference detected"
-];
-
-let msg=randomMsg[Math.floor(Math.random()*randomMsg.length)];
-
-displayMessage(
-names[Math.floor(Math.random()*names.length)],
-corrupt(msg)
-);
-
-}, 15000);
+}
 
 }
 
