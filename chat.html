@@ -5,8 +5,6 @@
 
 <meta charset="UTF-8">
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <style>
 
 body{
@@ -66,15 +64,15 @@ connect
 <div id="chat" style="display:none">
 
 <div class="system">
-limited bandwidth • packet loss detected
-messages may corrupt • delay 5–10 seconds
+limited bandwidth • unstable connection
+delay 5–10 seconds • corruption possible
 </div>
 
 <br>
 
 <div id="messages"></div>
 
-<input id="msg" placeholder="message">
+<input id="msg">
 
 <button onclick="sendMsg()">
 send
@@ -82,24 +80,35 @@ send
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 
 const supabase = window.supabase.createClient(
-
 "https://jxeznfxcltjopmskpnqz.supabase.co",
-
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4ZXpuZnhjbHRqb3Btc2twbnF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNzAyNDksImV4cCI6MjA5MDk0NjI0OX0.RdBfTCcJnK2xP3WVc99QXnLHfhyuNlG2rsTPWsBp5F4"
-
 );
 
 let username="";
-let lastMessageId=0;
+let lastId=0;
+
+function logSystem(text){
+
+let div=document.createElement("div");
+
+div.className="system";
+
+div.textContent=text;
+
+document.getElementById("messages").appendChild(div);
+
+}
 
 function connect(){
 
-username=document.getElementById("username").value;
+username=document.getElementById("username").value.trim();
 
-if(username.length<2){
+if(username===""){
 
 alert("enter username");
 
@@ -110,6 +119,8 @@ return;
 document.getElementById("login").style.display="none";
 
 document.getElementById("chat").style.display="block";
+
+logSystem("connected to island relay");
 
 loadMessages();
 
@@ -125,11 +136,7 @@ for(let i=0;i<chars.length;i++){
 
 if(Math.random()<0.1){
 
-chars[i]="#@$%&█".charAt(
-
-Math.floor(Math.random()*6)
-
-);
+chars[i]="#@$%&█".charAt(Math.floor(Math.random()*6));
 
 }
 
@@ -139,11 +146,11 @@ return chars.join("");
 
 }
 
-function display(msg){
+function showMsg(user,text){
 
 let div=document.createElement("div");
 
-div.innerHTML="<b>"+msg.username+"</b>: "+msg.message;
+div.innerHTML="<b>"+user+"</b>: "+text;
 
 document.getElementById("messages").appendChild(div);
 
@@ -155,21 +162,15 @@ let text=document.getElementById("msg").value;
 
 document.getElementById("msg").value="";
 
+logSystem("transmitting...");
+
 let delay=5000+Math.random()*5000;
-
-let div=document.createElement("div");
-
-div.innerHTML="<i>sending...</i>";
-
-document.getElementById("messages").appendChild(div);
 
 setTimeout(async()=>{
 
-await supabase
+try{
 
-.from("messages")
-
-.insert({
+await supabase.from("messages").insert({
 
 username:username,
 
@@ -177,7 +178,15 @@ message:corrupt(text)
 
 });
 
-div.remove();
+logSystem("packet sent");
+
+}catch(err){
+
+logSystem("error sending message");
+
+console.log(err);
+
+}
 
 },delay);
 
@@ -185,23 +194,39 @@ div.remove();
 
 async function loadMessages(){
 
-let {data}=await supabase
+try{
+
+let {data,error}=await supabase
 
 .from("messages")
 
 .select("*")
 
-.gt("id",lastMessageId)
+.gt("id",lastId)
 
 .order("id");
 
+if(error){
+
+logSystem("database error");
+
+return;
+
+}
+
 data.forEach(m=>{
 
-display(m);
+showMsg(m.username,m.message);
 
-lastMessageId=m.id;
+lastId=m.id;
 
 });
+
+}catch{
+
+logSystem("connection issue");
+
+}
 
 }
 
